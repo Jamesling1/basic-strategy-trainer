@@ -254,6 +254,7 @@ h1,h2,h3{font-family:var(--font-display),serif;letter-spacing:.04em;margin:0;}
 .act.stand{background:linear-gradient(180deg,#f2cf6b,#c79a2e);box-shadow:0 8px 20px rgba(var(--line-rgb),.4);}
 .act.double{background:linear-gradient(180deg,#46e8d2,#13a596);color:#04231f;box-shadow:0 8px 20px rgba(47,217,200,.35);}
 .act.split{background:linear-gradient(180deg,#c389ff,#7e3ee0);color:#fff;box-shadow:0 8px 20px rgba(176,107,255,.4);}
+.act.surrender{background:linear-gradient(180deg,#8a93a3,#525c6b);color:#fff;box-shadow:0 8px 20px rgba(90,100,115,.4);}
 
 /* count widget */
 .count-toggle{position:fixed;bottom:18px;right:18px;z-index:30;cursor:pointer;
@@ -336,7 +337,7 @@ h1,h2,h3{font-family:var(--font-display),serif;letter-spacing:.04em;margin:0;}
 .close-x{cursor:pointer;background:none;border:1px solid var(--gold);color:var(--gold);border-radius:8px;width:36px;height:36px;font-size:18px;}
 .key-legend{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0;font-family:var(--font-label);font-size:12px;letter-spacing:.06em;}
 .key-legend span{padding:5px 11px;border-radius:7px;color:var(--ink);font-weight:600;}
-.lg-H{background:#e0414e;color:#fff;}.lg-S{background:#f2cf6b;}.lg-D{background:#46e8d2;color:#04231f;}.lg-P{background:#c389ff;color:#fff;}
+.lg-H{background:#e0414e;color:#fff;}.lg-S{background:#f2cf6b;}.lg-D{background:#46e8d2;color:#04231f;}.lg-P{background:#c389ff;color:#fff;}.lg-R{background:#8a93a3;color:#fff;}
 .chart-wrap{overflow-x:auto;margin-bottom:18px;}
 .chart-wrap h3{font-size:15px;margin:14px 0 8px;color:var(--gold-bright);font-family:var(--font-label);letter-spacing:.16em;text-transform:uppercase;}
 table.chart{border-collapse:collapse;width:100%;font-family:var(--font-label);font-size:13px;}
@@ -347,6 +348,7 @@ td.c-H{background:rgba(224,65,78,.85);color:#fff;}
 td.c-S{background:rgba(242,207,107,.9);color:#16110a;}
 td.c-D{background:rgba(70,232,210,.85);color:#04231f;}
 td.c-P{background:rgba(195,137,255,.85);color:#fff;}
+td.c-R{background:rgba(138,147,163,.9);color:#fff;}
 .dev-table{font-family:var(--font-label);font-size:13px;width:100%;border-collapse:collapse;}
 .dev-table th,.dev-table td{border:1px solid rgba(var(--line-rgb),.25);padding:7px 9px;text-align:left;}
 .dev-table th{background:rgba(var(--line-rgb),.12);color:var(--gold-bright);}
@@ -488,6 +490,7 @@ td.c-P{background:rgba(195,137,255,.85);color:#fff;}
     <button class="act stand" data-act="stand" onclick="answer('stand')">Stand</button>
     <button class="act double" data-act="double" onclick="answer('double')">Double</button>
     <button class="act split" data-act="split" onclick="answer('split')">Split</button>
+    <button class="act surrender" data-act="surrender" onclick="answer('surrender')">Surrender</button>
   </div>
   <div class="peek-row"><button class="peek-btn" id="peekBtn" onclick="revealAnswer()">Show Correct Answer</button></div>
 </div>
@@ -520,6 +523,7 @@ td.c-P{background:rgba(195,137,255,.85);color:#fff;}
     <div class="key-legend">
       <span class="lg-H">H = Hit</span><span class="lg-S">S = Stand</span>
       <span class="lg-D">D = Double</span><span class="lg-P">P = Split</span>
+      <span class="lg-R">R = Surrender</span>
     </div>
     <p class="keynote">Multi-deck rules with double-after-split allowed. Ds means double if allowed, otherwise stand. Columns are the dealer up card.</p>
     <div class="chart-wrap" id="keyCharts"></div>
@@ -603,7 +607,25 @@ function evalHand(cards){
 function isPair(cards){ return cards.length===2 && cards[0].value===cards[1].value; }
 function pairVal(cards){ return cards[0].rank==='A' ? 'A' : cards[0].value; }
 
-function getCorrectAction(cards, up, rules, canD, canS){
+// Late surrender (4-8 decks). Checked first; only on the first two cards.
+function surrenderAction(cards, up, rules){
+  const h=evalHand(cards);
+  if(h.soft) return null;
+  const t=h.total;
+  const isPair8 = isPair(cards) && cards[0].value===8;
+  if(t===16 && !isPair8 && (up===9||up===10||up===11)) return 'surrender';
+  if(t===15){
+    if(up===10) return 'surrender';
+    if(up===11 && rules==='H17') return 'surrender';
+  }
+  if(rules==='H17'){
+    if(t===17 && up===11) return 'surrender';
+    if(isPair8 && up===11) return 'surrender';
+  }
+  return null;
+}
+function getCorrectAction(cards, up, rules, canD, canS, canR){
+  if(canR){ const s=surrenderAction(cards, up, rules); if(s) return s; }
   if(canS && isPair(cards) && pairSplit(pairVal(cards), up)) return 'split';
   const h = evalHand(cards);
   return h.soft ? softAction(h.total, up, rules, canD) : hardAction(h.total, up, rules, canD);
@@ -913,7 +935,7 @@ async function dealRound(){
   // auto-hit a trivial starting total (hard 8 or less, non-pair) so the first decision is real
   while(p.length<5){ if(isPair(p)) break; if(evalHand(p).total>8) break; const nxt=peek(); if(!nxt) break; p.push(draw()); }
 
-  const hand0={cards:p, bet:wager, stood:false, busted:false, doubled:false, fromSplit:false, splitAces:false};
+  const hand0={cards:p, bet:wager, stood:false, busted:false, doubled:false, surrendered:false, fromSplit:false, splitAces:false};
   G.R={ up, hole, holeEl:null, upEl:null, dealerCards:[up,hole], hands:[hand0], active:0, holeRevealed:false };
 
   document.getElementById('playerHands').appendChild(makeHandEl(0));
@@ -927,7 +949,10 @@ async function dealRound(){
 
   refreshCount(); updateTotals(); updateDealerLabel();
 
-  if(p.length===2 && evalHand(p).total===21){ await wait(150); return resolveBlackjack(); }
+  const playerNat = p.length===2 && evalHand(p).total===21;
+  const dealerNat = (up.value===10||up.value===11) && evalHand([up,hole]).total===21;
+  if(playerNat){ await wait(150); return resolveOpeners(true, dealerNat); }
+  if(dealerNat) G.R.dealerNatPending=true;   // hidden; player still makes a graded choice first
   startHandTurn();
 }
 
@@ -938,7 +963,8 @@ function startHandTurn(){
   const twoCards=hand.cards.length===2;
   const canD=twoCards;
   const canS=twoCards && isPair(hand.cards) && G.R.hands.length<4;
-  setControls(true, canD, canS);
+  const canR=twoCards && !hand.fromSplit && G.R.hands.length===1;
+  setControls(true, canD, canS, canR);
   G.locked=false;
 }
 
@@ -955,11 +981,12 @@ function refreshCount(){
     ? 'Ramp ON. Next wager $'+rec+' at true count '+(tc>0?'+':'')+tc+'.'
     : 'Flat $'+G.baseBet+'. A 1-4 spread suggests $'+rec+' here. Turn on Ramp Bets to use it.';
 }
-function setControls(on, canD, canS){
+function setControls(on, canD, canS, canR){
   document.querySelector('[data-act="hit"]').disabled=!on;
   document.querySelector('[data-act="stand"]').disabled=!on;
   document.querySelector('[data-act="double"]').disabled=!(on&&canD);
   document.querySelector('[data-act="split"]').disabled=!(on&&canS);
+  document.querySelector('[data-act="surrender"]').disabled=!(on&&canR);
   const pk=document.getElementById('peekBtn'); if(pk) pk.disabled=!on;
 }
 
@@ -970,7 +997,8 @@ function revealAnswer(){
   if(G.locked || !G.R) return;
   const hand=G.R.hands[G.R.active], up=G.R.up.value;
   const canD=hand.cards.length===2, canS=canD&&isPair(hand.cards)&&G.R.hands.length<4;
-  const correct=getCorrectAction(hand.cards, up, G.rules, canD, canS);
+  const canR=canD&&!hand.fromSplit&&G.R.hands.length===1;
+  const correct=getCorrectAction(hand.cards, up, G.rules, canD, canS, canR);
   let txt='Basic strategy says to: <span style="color:var(--cream);text-transform:uppercase;font-weight:700">'+correct+'</span>';
   if(G.dev){ const d=checkDeviation(hand.cards,up,trueCount(),G.rules,canD,canS); if(d) txt+=' <span style="color:var(--teal)">&middot; count says '+d.action.toUpperCase()+'</span>'; }
   document.getElementById('prompt').innerHTML=txt;
@@ -978,10 +1006,11 @@ function revealAnswer(){
 
 function answer(act){
   if(G.locked || !G.R) return;
-  G.locked=true; setControls(false,false,false);
+  G.locked=true; setControls(false,false,false,false);
   const hand=G.R.hands[G.R.active], up=G.R.up.value;
   const canD=hand.cards.length===2, canS=canD&&isPair(hand.cards)&&G.R.hands.length<4;
-  const correct=getCorrectAction(hand.cards, up, G.rules, canD, canS);
+  const canR=canD&&!hand.fromSplit&&G.R.hands.length===1;
+  const correct=getCorrectAction(hand.cards, up, G.rules, canD, canS, canR);
   const ok = act===correct;
 
   G.decisions++;
@@ -999,8 +1028,9 @@ function answer(act){
   }
   document.getElementById('prompt').innerHTML = 'Basic strategy says to: <span style="color:var(--cream);text-transform:uppercase;font-weight:700">'+correct+'</span>';
 
-  // grade now; the player's chosen action executes once feedback is dismissed
-  showFeedback(ok, correct, hand.cards, devObj, ()=>executeAction(act));
+  // grade now; then either resolve a hidden dealer blackjack, or play out the chosen action
+  const after = G.R.dealerNatPending ? resolveDealerNatural : ()=>executeAction(act);
+  showFeedback(ok, correct, hand.cards, devObj, after);
 }
 
 function showFeedback(ok, correct, cards, devObj, then){
@@ -1040,6 +1070,9 @@ async function executeAction(act){
     hand.stood=true; finishHand();
   } else if(act==='split'){
     await doSplit();
+  } else if(act==='surrender'){
+    hand.surrendered=true;
+    settle();   // forfeit half the bet, dealer does not play, hole stays down
   }
 }
 
@@ -1090,7 +1123,8 @@ function settle(){
   let net=0; const results=[];
   for(const hand of G.R.hands){
     const ph=evalHand(hand.cards); let r;
-    if(hand.busted){ r='lose'; net-=hand.bet; }
+    if(hand.surrendered){ r='surrender'; net-=hand.bet/2; }
+    else if(hand.busted){ r='lose'; net-=hand.bet; }
     else if(dbust){ r='win'; net+=hand.bet; }
     else if(ph.total>dealer.total){ r='win'; net+=hand.bet; }
     else if(ph.total<dealer.total){ r='lose'; net-=hand.bet; }
@@ -1101,26 +1135,39 @@ function settle(){
   showResult(results, net);
 }
 
-async function resolveBlackjack(){
-  G.locked=true; setControls(false,false,false);
-  await revealHole();
-  const dealer=evalHand(G.R.dealerCards);
-  const dealerBJ = G.R.dealerCards.length===2 && dealer.total===21;
+async function resolveDealerNatural(){
+  G.locked=true; setControls(false,false,false,false);
+  await revealHole();   // turn it over only after the player has committed to a play
   const hand=G.R.hands[0];
-  let net, label, sub;
-  if(dealerBJ){ net=0; label='PUSH'; sub='Both blackjack. Bet returned.'; }
-  else { net=hand.bet*1.5; label='BLACKJACK'; sub='Pays 3 to 2. +$'+net.toFixed(0); }
-  G.bankroll+=net; G.hands+=1; updateHUD();
+  const net=-hand.bet; G.bankroll+=net; G.hands+=1; updateHUD();
   const fb=document.getElementById('fb');
-  fb.innerHTML=`<div class="fb-card"><div class="verdict bj">${label}</div><div class="rule okrule">${sub} &bull; Bankroll $${G.bankroll.toFixed(0)}</div></div>`;
-  fb.classList.remove('hidden'); fb.onclick=null; G._cont=null; sndRight(); fxCorrect();
+  fb.innerHTML=`<div class="fb-card"><div class="verdict no">DEALER BLACKJACK</div><div class="rule">Dealer turns over 21, so the hand is over. -$${hand.bet.toFixed(0)} &bull; Bankroll $${G.bankroll.toFixed(0)}</div></div>`;
+  fb.classList.remove('hidden'); fb.onclick=null; G._cont=null; sndFlip(); fxWrong();
+  clearTimeout(G._adv); G._adv=setTimeout(()=>{ fb.classList.add('hidden'); dealRound(); }, 2000);
+}
+
+async function resolveOpeners(playerNat, dealerNat){
+  G.locked=true; setControls(false,false,false,false);
+  await revealHole();  // a natural is turned face up immediately
+  const hand=G.R.hands[0];
+  let net, label, sub, win;
+  if(playerNat && dealerNat){ net=0; label='PUSH'; sub='Both blackjack. Bet returned.'; win=false; }
+  else if(playerNat){ net=hand.bet*1.5; label='BLACKJACK'; sub='Pays 3 to 2. +$'+net.toFixed(0); win=true; }
+  else { net=-hand.bet; label='DEALER BLACKJACK'; sub='Dealer turns over 21. -$'+hand.bet.toFixed(0); win=false; }
+  G.bankroll+=net; G.hands+=1; updateHUD();
+  const cls = win?'bj':(label==='PUSH'?'bj':'no');
+  const fb=document.getElementById('fb');
+  fb.innerHTML=`<div class="fb-card"><div class="verdict ${cls}">${label}</div><div class="rule ${net>=0?'okrule':''}">${sub} &bull; Bankroll $${G.bankroll.toFixed(0)}</div></div>`;
+  fb.classList.remove('hidden'); fb.onclick=null; G._cont=null; sndFlip();
+  if(win) { sndRight(); fxCorrect(); } else if(net<0) fxWrong();
   clearTimeout(G._adv); G._adv=setTimeout(()=>{ fb.classList.add('hidden'); dealRound(); }, 2000);
 }
 
 function showResult(results, net){
   G.locked=true;
-  const cls = net>0?'ok' : net<0?'no' : 'bj';
-  const label = net>0?'WIN' : net<0?'LOSE' : 'PUSH';
+  const isSurr = results.length===1 && results[0]==='surrender';
+  const cls = isSurr?'no' : net>0?'ok' : net<0?'no' : 'bj';
+  const label = isSurr?'SURRENDER' : net>0?'WIN' : net<0?'LOSE' : 'PUSH';
   const money = net>0?'+$'+net.toFixed(0) : net<0?'-$'+Math.abs(net).toFixed(0) : 'Bet returned';
   const multi = results.length>1 ? '  ('+results.map(r=>r.toUpperCase()).join(' / ')+')' : '';
   const fb=document.getElementById('fb');
@@ -1155,8 +1202,8 @@ function flashShuffle(){
 }
 
 /* ---- text builders ---- */
-const VERB={hit:'HITS',stand:'STANDS',double:'DOUBLES',split:'SPLITS'};
-const GER ={hit:'HITTING',stand:'STANDING',double:'DOUBLING',split:'SPLITTING'};
+const VERB={hit:'HITS',stand:'STANDS',double:'DOUBLES',split:'SPLITS',surrender:'SURRENDERS'};
+const GER ={hit:'HITTING',stand:'STANDING',double:'DOUBLING',split:'SPLITTING',surrender:'SURRENDERING'};
 function totalLabel(cards){
   const h=evalHand(cards);
   const ace=cards.some(c=>c.rank==='A');
@@ -1351,6 +1398,7 @@ function cellCode(action, soft){
   return 'H';
 }
 let softFallback='hit';
+function synthHard(t){ return [{value:10,rank:'10'},{value:t-10,rank:''+(t-10)}]; }
 function renderKey(){
   const ups=[2,3,4,5,6,7,8,9,10,11];
   const head='<tr><th></th>'+ups.map(u=>`<th>${u===11?'A':u}</th>`).join('')+'</tr>';
@@ -1360,8 +1408,9 @@ function renderKey(){
   for(let t=20;t>=5;t--){
     hard+=`<tr><td class="lab">${t}</td>`;
     for(const u of ups){
-      const a=hardAction(t,u,keyRule,true);
-      const code=a==='double'?'D':a==='stand'?'S':'H';
+      let code;
+      if(t>=15 && t<=17 && surrenderAction(synthHard(t),u,keyRule)) code='R';
+      else { const a=hardAction(t,u,keyRule,true); code=a==='double'?'D':a==='stand'?'S':'H'; }
       hard+=`<td class="c-${code[0]}">${code}</td>`;
     }
     hard+='</tr>';
@@ -1390,7 +1439,8 @@ function renderKey(){
     pair+=`<tr><td class="lab">${lab}</td>`;
     for(const u of ups){
       let code;
-      if(pairSplit(pv,u)) code='P';
+      if(pv===8 && keyRule==='H17' && u===11) code='R';
+      else if(pairSplit(pv,u)) code='P';
       else {
         const num = pv==='A'?12:(pv===10?20:pv*2);
         if(pv==='A'){ code='S'; }
@@ -1434,17 +1484,19 @@ function renderKey(){
   document.getElementById('devTable').innerHTML=dt;
 }
 
-/* keyboard shortcuts: H S D P / space to continue */
+/* keyboard shortcuts: H S D P R / space to continue */
 document.addEventListener('keydown',e=>{
   const game=!document.getElementById('game').classList.contains('hidden');
   if(!game) return;
   const fbOpen=!document.getElementById('fb').classList.contains('hidden');
   if(fbOpen){ if(e.key===' '||e.key==='Enter'){e.preventDefault(); if(G._cont) G._cont();} return; }
   const k=e.key.toLowerCase();
-  if(k==='h') answer('hit');
-  else if(k==='s') answer('stand');
-  else if(k==='d'){ if(!document.querySelector('[data-act="double"]').disabled) answer('double'); }
-  else if(k==='p'){ if(!document.querySelector('[data-act="split"]').disabled) answer('split'); }
+  const can=a=>!document.querySelector('[data-act="'+a+'"]').disabled;
+  if(k==='h'){ if(can('hit')) answer('hit'); }
+  else if(k==='s'){ if(can('stand')) answer('stand'); }
+  else if(k==='d'){ if(can('double')) answer('double'); }
+  else if(k==='p'){ if(can('split')) answer('split'); }
+  else if(k==='r'){ if(can('surrender')) answer('surrender'); }
 });
 </script>
 </body>

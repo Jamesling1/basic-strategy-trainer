@@ -221,8 +221,13 @@ h1,h2,h3{font-family:var(--font-display),serif;letter-spacing:.04em;margin:0;}
 .card .corner .r{font-size:25px;}
 .card .corner .s{font-size:19px;}
 .card .pip{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:58px;}
-.card.red .corner,.card.red .pip{color:var(--red);}
-.card.black .corner,.card.black .pip{color:#15110b;}
+.pip-grid{position:absolute;top:24px;bottom:24px;left:15px;right:15px;}
+.ppip{position:absolute;transform:translate(-50%,-50%);font-size:26px;line-height:1;}
+.pip-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:60px;line-height:1;}
+.face-fig{position:absolute;top:48%;left:50%;transform:translate(-50%,-50%);font-size:70px;line-height:1;}
+.face-suit{position:absolute;top:50%;left:50%;transform:translate(-50%,150%);font-size:22px;line-height:1;}
+.card.red .corner,.card.red .pip,.card.red .ppip,.card.red .pip-center,.card.red .face-fig,.card.red .face-suit{color:var(--red);}
+.card.black .corner,.card.black .pip,.card.black .ppip,.card.black .pip-center,.card.black .face-fig,.card.black .face-suit{color:#15110b;}
 .card.deal-in{animation:dealIn .42s cubic-bezier(.2,.85,.25,1) both;}
 @keyframes dealIn{from{transform:translate(150px,-180px) rotate(28deg) scale(.55);opacity:0;}to{transform:none;opacity:1;}}
 .card.back{background:
@@ -256,7 +261,19 @@ h1,h2,h3{font-family:var(--font-display),serif;letter-spacing:.04em;margin:0;}
   padding:12px 18px;border-radius:12px;font-family:var(--font-label);letter-spacing:.12em;font-size:13px;text-transform:uppercase;
   box-shadow:var(--shadow);transition:.15s;}
 .count-toggle:hover{background:rgba(var(--line-rgb),.15);}
-.count-panel{position:fixed;bottom:64px;right:18px;z-index:29;background:var(--panel-2);
+.ramp-toggle{bottom:64px;}
+.ramp-toggle.on-ramp{background:linear-gradient(180deg,var(--gold),var(--gold-deep));color:var(--ink);}
+.phands{display:flex;justify-content:center;align-items:flex-start;gap:18px;flex-wrap:wrap;width:100%;min-height:172px;}
+.phand{display:flex;flex-direction:column;align-items:center;gap:7px;padding:8px 8px 4px;border-radius:14px;transition:.2s;border:1px solid transparent;}
+.phand.active{border-color:var(--gold);box-shadow:0 0 22px rgba(var(--line-rgb),.35);background:rgba(var(--line-rgb),.06);}
+.phand .hcards{display:flex;gap:10px;min-height:158px;align-items:center;flex-wrap:wrap;justify-content:center;}
+.hlabel{font-family:var(--font-label);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);}
+.hlabel b{color:var(--gold-bright);}
+.peek-row{display:flex;justify-content:center;padding:0 12px 16px;z-index:4;}
+.peek-btn{cursor:pointer;background:transparent;border:1px solid rgba(var(--line-rgb),.45);color:var(--muted);
+  font-family:var(--font-label);font-size:11px;letter-spacing:.14em;text-transform:uppercase;padding:8px 16px;border-radius:20px;transition:.15s;}
+.peek-btn:hover{border-color:var(--gold-bright);color:var(--gold-bright);}
+.count-panel{position:fixed;bottom:108px;right:18px;z-index:29;background:var(--panel-2);
   border:1px solid var(--gold);border-radius:12px;padding:14px 18px;box-shadow:var(--shadow);min-width:190px;
   transform-origin:bottom right;}
 .count-panel .row{display:flex;justify-content:space-between;gap:18px;padding:5px 0;font-family:var(--font-label);}
@@ -356,6 +373,8 @@ td.c-P{background:rgba(195,137,255,.85);color:#fff;}
   .deck-grid{grid-template-columns:repeat(4,1fr);}
   .card{width:88px;height:124px;}
   .card .corner .r{font-size:20px;}.card .pip{font-size:46px;}
+  .pip-grid{top:20px;bottom:20px;left:11px;right:11px;}
+  .ppip{font-size:20px;}.pip-center{font-size:46px;}.face-fig{font-size:54px;}.face-suit{font-size:17px;}
   .act{min-width:0;padding:14px 6px;font-size:14px;}
   .hud .stat .v{font-size:16px;}
 }
@@ -436,7 +455,8 @@ td.c-P{background:rgba(195,137,255,.85);color:#fff;}
       <div class="stat"><span class="k">Time</span><span class="v" id="hudTime">00:00</span></div>
       <div class="stat"><span class="k">Hands</span><span class="v" id="hudHands">0</span></div>
       <div class="stat"><span class="k">Accuracy</span><span class="v gold" id="hudAcc">100%</span></div>
-      <div class="stat"><span class="k">Score</span><span class="v gold" id="hudScore">0</span></div>
+      <div class="stat"><span class="k">Bankroll</span><span class="v gold" id="hudBank">$100</span></div>
+      <div class="stat"><span class="k">Bet</span><span class="v" id="hudBet">$25</span></div>
     </div>
     <div class="hud-group">
       <div class="streak-badge" id="streakBadge"><span id="streakFire">&#9889;</span><span id="hudStreak">0</span></div>
@@ -456,7 +476,7 @@ td.c-P{background:rgba(195,137,255,.85);color:#fff;}
     </div>
 
     <div class="zone player-zone">
-      <div class="cards" id="playerCards"></div>
+      <div class="phands" id="playerHands"></div>
       <div class="tag">Your Hand <b id="playerTotal"></b></div>
     </div>
   </div>
@@ -469,15 +489,18 @@ td.c-P{background:rgba(195,137,255,.85);color:#fff;}
     <button class="act double" data-act="double" onclick="answer('double')">Double</button>
     <button class="act split" data-act="split" onclick="answer('split')">Split</button>
   </div>
+  <div class="peek-row"><button class="peek-btn" id="peekBtn" onclick="revealAnswer()">Show Correct Answer</button></div>
 </div>
 
 <!-- count widget -->
+<div id="rampToggle" class="count-toggle ramp-toggle hidden" onclick="toggleRamp()">RAMP BETS: OFF</div>
 <div id="countToggle" class="count-toggle hidden" onclick="toggleCount()">SHOW COUNT</div>
 <div id="countPanel" class="count-panel hidden">
   <div class="row"><span class="k">Running</span><span class="v" id="rcVal">0</span></div>
   <div class="row"><span class="k">True Count</span><span class="v" id="tcVal">0</span></div>
   <div class="row"><span class="k">Decks Left</span><span class="v" id="dkVal">8.0</span></div>
-  <div class="note">Hi-Lo. Hole card counts when the hand resolves.</div>
+  <div class="row"><span class="k">Suggested Bet</span><span class="v" id="betRec">$25</span></div>
+  <div class="note" id="betNote">Hi-Lo 1-4 spread on a $25 unit.</div>
 </div>
 
 <!-- feedback overlay -->
@@ -630,12 +653,13 @@ function hiLo(r){ const v=rankValue(r); if(r==='A'||v===10) return -1; if(v>=2 &
 
 const G = {
   rules:null, decks:null, dev:false, sound:true, showTotals:false, theme:'emerald',
+  betRamp:false, baseBet:25, bankroll:100,
   shoe:[], idx:0, running:0,
-  running:0, hands:0, correct:0,
+  running:0, hands:0, decisions:0, correct:0,
   cat:{hard:[0,0], soft:[0,0], pair:[0,0]},
   streak:0, best:0, score:0, devSeen:0, devCorrect:0,
   startT:0, timerId:null,
-  current:null, locked:true, countShown:false
+  R:null, locked:true, countShown:false, _cont:null
 };
 
 function buildShoe(){
@@ -652,8 +676,8 @@ function buildShoe(){
 }
 function decksLeft(){ return Math.max(0.25,(G.shoe.length-G.idx)/52); }
 function trueCount(){ const tc=G.running/decksLeft(); return tc>=0?Math.floor(tc):Math.ceil(tc); }
-function needShuffle(){ return (G.shoe.length-G.idx) < Math.max(15, G.shoe.length*0.22); }
-function draw(){ return G.shoe[G.idx++]; }
+function needShuffle(){ return (G.shoe.length-G.idx) < Math.max(30, G.shoe.length*0.22); }
+function draw(){ if(G.idx>=G.shoe.length){ buildShoe(); } return G.shoe[G.idx++]; }
 function peek(){ return G.shoe[G.idx]; }
 
 /* ============================================================
@@ -735,13 +759,17 @@ function toggleSound(){ G.sound=!G.sound; document.getElementById('soundBtn').in
 async function startGame(){
   try{ if(!actx) actx=new (window.AudioContext||window.webkitAudioContext)(); else actx.resume(); }catch(e){}
   buildShoe();
-  G.hands=0;G.correct=0;G.streak=0;G.best=0;G.score=0;G.devSeen=0;G.devCorrect=0;
+  G.hands=0;G.decisions=0;G.correct=0;G.streak=0;G.best=0;G.score=0;G.devSeen=0;G.devCorrect=0;
+  G.bankroll=100;
   G.cat={hard:[0,0],soft:[0,0],pair:[0,0]};
   document.getElementById('tableRule').textContent = G.rules==='H17' ? 'DEALER MUST HIT ON SOFT 17' : 'DEALER MUST STAND ON SOFT 17';
+  document.getElementById('rampToggle').textContent='RAMP BETS: '+(G.betRamp?'ON':'OFF');
+  document.getElementById('rampToggle').classList.toggle('on-ramp', G.betRamp);
   document.getElementById('setup').classList.add('hidden');
   document.getElementById('endScreen').classList.add('hidden');
   document.getElementById('game').classList.remove('hidden');
   document.getElementById('countToggle').classList.remove('hidden');
+  document.getElementById('rampToggle').classList.remove('hidden');
   document.getElementById('hudTime').textContent='00:00';
   updateHUD();
   await playIntro();
@@ -766,14 +794,42 @@ function tick(){
   document.getElementById('hudTime').textContent=String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
 }
 
+/* chess-style figures stand in for the court cards: knight=Jack, queen, king */
+const FIG={J:'\u265E',Q:'\u265B',K:'\u265A'};
+const L=25,C=50,Rr=75;
+const PIPS={
+  '2':[[C,18],[C,82]],
+  '3':[[C,16],[C,50],[C,84]],
+  '4':[[L,18],[Rr,18],[L,82],[Rr,82]],
+  '5':[[L,18],[Rr,18],[C,50],[L,82],[Rr,82]],
+  '6':[[L,18],[Rr,18],[L,50],[Rr,50],[L,82],[Rr,82]],
+  '7':[[L,16],[Rr,16],[C,33],[L,50],[Rr,50],[L,84],[Rr,84]],
+  '8':[[L,15],[Rr,15],[C,32],[L,49],[Rr,49],[C,66],[L,85],[Rr,85]],
+  '9':[[L,15],[Rr,15],[L,38],[Rr,38],[C,50],[L,62],[Rr,62],[L,85],[Rr,85]],
+  '10':[[L,14],[Rr,14],[C,27],[L,39],[Rr,39],[L,61],[Rr,61],[C,73],[L,86],[Rr,86]]
+};
+function cardFaceHTML(card){
+  const r=card.rank, s=card.suit;
+  let center;
+  if(r==='A'){
+    center=`<div class="pip-center">${s}</div>`;
+  } else if(FIG[r]){
+    center=`<div class="face-fig">${FIG[r]}</div><div class="face-suit">${s}</div>`;
+  } else {
+    const pts=PIPS[r]||[];
+    center='<div class="pip-grid">'+pts.map(p=>{
+      const flip = p[1]>55 ? ';transform:translate(-50%,-50%) rotate(180deg)' : '';
+      return `<span class="ppip" style="left:${p[0]}%;top:${p[1]}%${flip}">${s}</span>`;
+    }).join('')+'</div>';
+  }
+  return `<div class="corner tl"><span class="r">${r}</span><span class="s">${s}</span></div>
+    ${center}
+    <div class="corner br"><span class="r">${r}</span><span class="s">${s}</span></div>`;
+}
 function makeCardEl(card, faceDown){
   const el=document.createElement('div');
   el.className='card deal-in '+(faceDown?'back':card.color);
-  if(!faceDown){
-    el.innerHTML=`<div class="corner tl"><span class="r">${card.rank}</span><span class="s">${card.suit}</span></div>
-      <div class="pip">${card.suit}</div>
-      <div class="corner br"><span class="r">${card.rank}</span><span class="s">${card.suit}</span></div>`;
-  }
+  if(!faceDown) el.innerHTML=cardFaceHTML(card);
   return el;
 }
 function wait(ms){ return new Promise(r=>setTimeout(r,ms)); }
@@ -786,63 +842,102 @@ async function dealTo(zoneId, card, faceDown){
   return el;
 }
 
-function buildScenario(){
-  if(needShuffle()){ buildShoe(); flashShuffle(); }
-  const p=[draw()];
-  const up=draw();
-  p.push(draw());
-  const hole=draw();
-  // A hard total of 8 or less is always a hit in basic strategy, so there is no real
-  // decision there. Auto-hit those trivial hands and deal on until the player faces a
-  // genuine decision. No ratios. A two-card pair is left alone since it is a split call.
-  while(p.length<5){
-    if(isPair(p)) break;
-    if(evalHand(p).total>8) break;
-    const nxt=peek();
-    if(!nxt) break;
-    p.push(draw());
-  }
-  return {player:p, up, hole};
+/* ---- betting ---- */
+function recommendedBet(){
+  const tc=trueCount();              // Hi-Lo 1-4 spread on the base unit
+  const units = tc>=4?4 : tc>=3?3 : tc>=2?2 : 1;
+  return units*G.baseBet;
+}
+function currentWager(){ return G.betRamp ? recommendedBet() : G.baseBet; }
+
+/* ---- per-hand rendering ---- */
+function makeHandEl(i){
+  const d=document.createElement('div');
+  d.className='phand'; d.dataset.hand=i;
+  d.innerHTML='<div class="cards hcards"></div><div class="hlabel"></div>';
+  return d;
+}
+function handCardsEl(i){ const d=document.querySelector('.phand[data-hand="'+i+'"]'); return d?d.querySelector('.hcards'):null; }
+async function dealCardToHand(i, card){
+  const wrap=handCardsEl(i); if(!wrap) return;
+  const el=makeCardEl(card,false);
+  wrap.appendChild(el); sndDeal();
+  await wait(150); return el;
+}
+function renderHands(){
+  const pc=document.getElementById('playerHands'); pc.innerHTML='';
+  G.R.hands.forEach((hand,idx)=>{
+    const d=makeHandEl(idx); pc.appendChild(d);
+    const inner=d.querySelector('.hcards');
+    hand.cards.forEach(c=>{ const e=makeCardEl(c,false); e.classList.remove('deal-in'); inner.appendChild(e); });
+  });
+  highlightActive(); updateTotals();
+}
+function highlightActive(){
+  document.querySelectorAll('.phand').forEach(d=>d.classList.toggle('active', +d.dataset.hand===G.R.active && G.R.hands.length>1));
+}
+function updateTotals(){
+  if(!G.R) return;
+  G.R.hands.forEach((hand,idx)=>{
+    const lbl=document.querySelector('.phand[data-hand="'+idx+'"] .hlabel');
+    if(!lbl) return;
+    let t='<b>$'+hand.bet+'</b>';
+    if(G.showTotals) t+=' &bull; '+totalLabel(hand.cards)+(isPair(hand.cards)?' (pair)':'');
+    lbl.innerHTML=t;
+  });
+  const tag=document.getElementById('playerTotal');
+  if(G.showTotals && G.R.hands[G.R.active]) tag.textContent=totalLabel(G.R.hands[G.R.active].cards);
+  else tag.textContent='';
+}
+function updateDealerLabel(){
+  const ds=document.getElementById('dealerShow');
+  if(!G.showTotals || !G.R){ ds.textContent=''; return; }
+  ds.textContent = G.R.holeRevealed ? totalLabel(G.R.dealerCards) : upText(G.R.up.value);
 }
 
+/* ---- deal a fresh round ---- */
 async function dealRound(){
   G.locked=true;
-  document.getElementById('playerCards').innerHTML='';
+  if(needShuffle()){ buildShoe(); flashShuffle(); await wait(1100); }
+  document.getElementById('playerHands').innerHTML='';
   document.getElementById('dealerCards').innerHTML='';
   document.getElementById('dealerShow').textContent='';
   document.getElementById('playerTotal').textContent='';
   document.getElementById('prompt').textContent='Basic strategy says to:';
   setControls(false,false,false);
 
-  const sc=buildScenario();
-  G.current=sc;
+  const wager=currentWager();
+  updateHUD();
 
-  // real deal order: player, dealer up, player, dealer hole
-  const pEl=[];
-  pEl.push(await dealTo('playerCards', sc.player[0], false)); countCard(sc.player[0]);
-  const upEl=await dealTo('dealerCards', sc.up, false); countCard(sc.up);
-  pEl.push(await dealTo('playerCards', sc.player[1], false)); countCard(sc.player[1]);
-  G.holeEl=await dealTo('dealerCards', sc.hole, true); // not counted yet
-  // extra player cards
-  for(let i=2;i<sc.player.length;i++){ pEl.push(await dealTo('playerCards', sc.player[i], false)); countCard(sc.player[i]); }
+  const p=[draw()]; const up=draw(); p.push(draw()); const hole=draw();
+  // auto-hit a trivial starting total (hard 8 or less, non-pair) so the first decision is real
+  while(p.length<5){ if(isPair(p)) break; if(evalHand(p).total>8) break; const nxt=peek(); if(!nxt) break; p.push(draw()); }
 
-  refreshCount();
-  const h=evalHand(sc.player);
-  if(G.showTotals){
-    document.getElementById('dealerShow').textContent = upText(sc.up.value);
-    document.getElementById('playerTotal').textContent = totalLabel(sc.player) + (isPair(sc.player)?'  (pair)':'');
-  }
+  const hand0={cards:p, bet:wager, stood:false, busted:false, doubled:false, fromSplit:false, splitAces:false};
+  G.R={ up, hole, holeEl:null, upEl:null, dealerCards:[up,hole], hands:[hand0], active:0, holeRevealed:false };
 
-  // dealt hand already totals 21 with no decision to make -> flash and move on
-  if(h.total===21){
-    await wait(150);
-    showAutoResolve(sc.player.length===2);
-    return;
-  }
+  document.getElementById('playerHands').appendChild(makeHandEl(0));
 
-  // enable valid answers
-  const canD = sc.player.length===2;
-  const canS = isPair(sc.player);
+  // real deal order: player, dealer up, player, dealer hole, then any extras
+  await dealCardToHand(0,p[0]); countCard(p[0]);
+  G.R.upEl=await dealTo('dealerCards', up, false); countCard(up);
+  await dealCardToHand(0,p[1]); countCard(p[1]);
+  G.R.holeEl=await dealTo('dealerCards', hole, true);
+  for(let i=2;i<p.length;i++){ await dealCardToHand(0,p[i]); countCard(p[i]); }
+
+  refreshCount(); updateTotals(); updateDealerLabel();
+
+  if(p.length===2 && evalHand(p).total===21){ await wait(150); return resolveBlackjack(); }
+  startHandTurn();
+}
+
+function startHandTurn(){
+  const hand=G.R.hands[G.R.active];
+  highlightActive(); updateTotals();
+  document.getElementById('prompt').textContent='Basic strategy says to:';
+  const twoCards=hand.cards.length===2;
+  const canD=twoCards;
+  const canS=twoCards && isPair(hand.cards) && G.R.hands.length<4;
   setControls(true, canD, canS);
   G.locked=false;
 }
@@ -853,114 +948,202 @@ function refreshCount(){
   document.getElementById('rcVal').textContent=(G.running>0?'+':'')+G.running;
   document.getElementById('tcVal').textContent=(trueCount()>0?'+':'')+trueCount();
   document.getElementById('dkVal').textContent=decksLeft().toFixed(1);
+  const rec=recommendedBet(), tc=trueCount();
+  const be=document.getElementById('betRec'); if(be) be.textContent='$'+rec;
+  const bn=document.getElementById('betNote');
+  if(bn) bn.innerHTML = G.betRamp
+    ? 'Ramp ON. Next wager $'+rec+' at true count '+(tc>0?'+':'')+tc+'.'
+    : 'Flat $'+G.baseBet+'. A 1-4 spread suggests $'+rec+' here. Turn on Ramp Bets to use it.';
 }
 function setControls(on, canD, canS){
   document.querySelector('[data-act="hit"]').disabled=!on;
   document.querySelector('[data-act="stand"]').disabled=!on;
   document.querySelector('[data-act="double"]').disabled=!(on&&canD);
   document.querySelector('[data-act="split"]').disabled=!(on&&canS);
+  const pk=document.getElementById('peekBtn'); if(pk) pk.disabled=!on;
 }
 
 /* ============================================================
-   ANSWERING / GRADING
+   ANSWERING / GRADING / PLAY-OUT
    ============================================================ */
+function revealAnswer(){
+  if(G.locked || !G.R) return;
+  const hand=G.R.hands[G.R.active], up=G.R.up.value;
+  const canD=hand.cards.length===2, canS=canD&&isPair(hand.cards)&&G.R.hands.length<4;
+  const correct=getCorrectAction(hand.cards, up, G.rules, canD, canS);
+  let txt='Basic strategy says to: <span style="color:var(--cream);text-transform:uppercase;font-weight:700">'+correct+'</span>';
+  if(G.dev){ const d=checkDeviation(hand.cards,up,trueCount(),G.rules,canD,canS); if(d) txt+=' <span style="color:var(--teal)">&middot; count says '+d.action.toUpperCase()+'</span>'; }
+  document.getElementById('prompt').innerHTML=txt;
+}
+
 function answer(act){
-  if(G.locked) return;
-  G.locked=true;
-  setControls(false,false,false);
-  const sc=G.current;
-  const up=sc.up.value;
-  const canD=sc.player.length===2, canS=isPair(sc.player);
-  const correct=getCorrectAction(sc.player, up, G.rules, canD, canS);
+  if(G.locked || !G.R) return;
+  G.locked=true; setControls(false,false,false);
+  const hand=G.R.hands[G.R.active], up=G.R.up.value;
+  const canD=hand.cards.length===2, canS=canD&&isPair(hand.cards)&&G.R.hands.length<4;
+  const correct=getCorrectAction(hand.cards, up, G.rules, canD, canS);
   const ok = act===correct;
 
-  // stats
-  G.hands++;
-  const cat = canS?'pair':(evalHand(sc.player).soft?'soft':'hard');
-  G.cat[cat][1]++;
+  G.decisions++;
   if(ok){
-    G.correct++; G.cat[cat][0]++; G.streak++; if(G.streak>G.best)G.best=G.streak;
+    G.correct++; G.streak++; if(G.streak>G.best)G.best=G.streak;
     G.score += 10 + Math.min(40, G.streak*2);
     if(G.streak>0 && G.streak%5===0) sndLevel(); else sndRight();
-  } else {
-    G.streak=0; sndWrong();
-  }
+  } else { G.streak=0; sndWrong(); }
   updateHUD();
 
-  // deviation (educational, count tracked BEFORE hole reveal)
   let devObj=null;
   if(G.dev){
-    devObj=checkDeviation(sc.player, up, trueCount(), G.rules, canD, canS);
+    devObj=checkDeviation(hand.cards, up, trueCount(), G.rules, canD, canS);
     if(devObj){ G.devSeen++; if(act===devObj.action) G.devCorrect++; }
   }
+  document.getElementById('prompt').innerHTML = 'Basic strategy says to: <span style="color:var(--cream);text-transform:uppercase;font-weight:700">'+correct+'</span>';
 
-  // fill the question prompt with the basic-strategy answer
-  document.getElementById('prompt').innerHTML = 'Basic strategy says to: <span style="color:#fff;text-transform:uppercase">'+correct+'</span>';
-
-  showFeedback(ok, correct, sc, devObj);
-  // reveal the dealer's hole card right away so the count can be followed during feedback
-  revealHole();
+  // grade now; the player's chosen action executes once feedback is dismissed
+  showFeedback(ok, correct, hand.cards, devObj, ()=>executeAction(act));
 }
 
-function showFeedback(ok, correct, sc, devObj){
+function showFeedback(ok, correct, cards, devObj, then){
   const fb=document.getElementById('fb');
   const verdict = ok? '<div class="verdict ok">CORRECT</div>' : '<div class="verdict no">WRONG</div>';
-  let ruleHtml='';
-  if(!ok){
-    ruleHtml=`<div class="rule">${ruleText(correct, sc)}</div>`;
-  }
+  const ruleHtml = ok? '' : `<div class="rule">${ruleText(correct, cards)}</div>`;
   let devHtml='';
   if(devObj){
-    devHtml=`<div class="dev"><span class="lbl">&#9650; ILLUSTRIOUS 18 DEVIATION</span>Choose the Illustrious 18 deviation due to the count!<span style="display:block;margin-top:7px;font-weight:500;font-size:.85em">${devText(devObj, sc)}</span></div>`;
+    devHtml=`<div class="dev"><span class="lbl">&#9650; ILLUSTRIOUS 18 DEVIATION</span>Choose the Illustrious 18 deviation due to the count!<span style="display:block;margin-top:7px;font-weight:500;font-size:.85em">${devText(devObj, cards)}</span></div>`;
   }
-  const hint = `<div class="next-hint" onclick="advance()">tap anywhere or <span>continue &rsaquo;</span></div>`;
+  const needClick = !ok || !!devObj;
+  const hint = needClick ? `<div class="next-hint">tap anywhere or <span>continue &rsaquo;</span></div>` : '';
   fb.innerHTML=`<div class="fb-card">${verdict}${ruleHtml}${devHtml}${hint}</div>`;
   fb.classList.remove('hidden');
-  fb.onclick=advance;
-
   if(ok) fxCorrect(); else fxWrong();
 
-  // correct answers with no deviation auto-advance; wrong answers and any
-  // deviation stay on screen until the player clicks to continue
+  const go=()=>{ clearTimeout(G._adv); G._cont=null; fb.onclick=null; fb.classList.add('hidden'); then&&then(); };
+  G._cont=go; fb.onclick=go;
   clearTimeout(G._adv);
-  if(ok && !devObj){
-    G._adv=setTimeout(advance, 950);
+  if(!needClick) G._adv=setTimeout(go, 700);
+}
+
+async function executeAction(act){
+  const i=G.R.active, hand=G.R.hands[i];
+  if(act==='hit'){
+    const c=draw(); hand.cards.push(c); await dealCardToHand(i,c); countCard(c); refreshCount(); updateTotals();
+    const t=evalHand(hand.cards).total;
+    if(t>21){ hand.busted=true; finishHand(); }
+    else if(t===21){ hand.stood=true; finishHand(); }
+    else startHandTurn();
+  } else if(act==='stand'){
+    hand.stood=true; finishHand();
+  } else if(act==='double'){
+    hand.bet*=2; hand.doubled=true; updateTotals();
+    const c=draw(); hand.cards.push(c); await dealCardToHand(i,c); countCard(c); refreshCount(); updateTotals();
+    if(evalHand(hand.cards).total>21) hand.busted=true;
+    hand.stood=true; finishHand();
+  } else if(act==='split'){
+    await doSplit();
   }
 }
 
-function advance(){
-  clearTimeout(G._adv);
+async function doSplit(){
+  const i=G.R.active, hand=G.R.hands[i];
+  const isAces = hand.cards[0].rank==='A';
+  const moved=hand.cards.pop();
+  const nh={cards:[moved], bet:hand.bet, stood:false, busted:false, doubled:false, fromSplit:true, splitAces:isAces};
+  hand.fromSplit=true; hand.splitAces=isAces;
+  G.R.hands.splice(i+1,0,nh);
+  renderHands();
+  const c1=draw(); hand.cards.push(c1); await dealCardToHand(i,c1); countCard(c1);
+  const c2=draw(); nh.cards.push(c2); await dealCardToHand(i+1,c2); countCard(c2);
+  refreshCount(); updateTotals();
+  if(isAces){ hand.stood=true; nh.stood=true; finishHand(); return; }
+  const t=evalHand(hand.cards).total;
+  if(t===21){ hand.stood=true; finishHand(); }
+  else startHandTurn();
+}
+
+function finishHand(){
+  do { G.R.active++; }
+  while(G.R.active<G.R.hands.length && (G.R.hands[G.R.active].stood || G.R.hands[G.R.active].busted));
+  if(G.R.active<G.R.hands.length) startHandTurn();
+  else dealerPlayAndSettle();
+}
+
+async function dealerPlayAndSettle(){
+  G.locked=true; setControls(false,false,false);
+  document.getElementById('prompt').textContent='Dealer plays';
+  await revealHole();
+  if(G.R.hands.some(h=>!h.busted)) await dealerDraw();
+  settle();
+}
+async function dealerDraw(){
+  const d=G.R.dealerCards;
+  while(true){
+    const e=evalHand(d);
+    const hitSoft17 = e.total===17 && e.soft && G.rules==='H17';
+    if(e.total<17 || hitSoft17){
+      const c=draw(); d.push(c); await dealTo('dealerCards', c, false); countCard(c); refreshCount(); updateDealerLabel();
+      await wait(120);
+    } else break;
+  }
+}
+function settle(){
+  const dealer=evalHand(G.R.dealerCards), dbust=dealer.total>21;
+  let net=0; const results=[];
+  for(const hand of G.R.hands){
+    const ph=evalHand(hand.cards); let r;
+    if(hand.busted){ r='lose'; net-=hand.bet; }
+    else if(dbust){ r='win'; net+=hand.bet; }
+    else if(ph.total>dealer.total){ r='win'; net+=hand.bet; }
+    else if(ph.total<dealer.total){ r='lose'; net-=hand.bet; }
+    else { r='push'; }
+    results.push(r);
+  }
+  G.bankroll+=net; G.hands+=G.R.hands.length; updateHUD();
+  showResult(results, net);
+}
+
+async function resolveBlackjack(){
+  G.locked=true; setControls(false,false,false);
+  await revealHole();
+  const dealer=evalHand(G.R.dealerCards);
+  const dealerBJ = G.R.dealerCards.length===2 && dealer.total===21;
+  const hand=G.R.hands[0];
+  let net, label, sub;
+  if(dealerBJ){ net=0; label='PUSH'; sub='Both blackjack. Bet returned.'; }
+  else { net=hand.bet*1.5; label='BLACKJACK'; sub='Pays 3 to 2. +$'+net.toFixed(0); }
+  G.bankroll+=net; G.hands+=1; updateHUD();
   const fb=document.getElementById('fb');
-  if(fb.classList.contains('hidden')) return;
-  fb.onclick=null;
-  fb.classList.add('hidden');
-  // reveal hole + count it
-  revealHole().then(()=>{ setTimeout(dealRound, 260); });
+  fb.innerHTML=`<div class="fb-card"><div class="verdict bj">${label}</div><div class="rule okrule">${sub} &bull; Bankroll $${G.bankroll.toFixed(0)}</div></div>`;
+  fb.classList.remove('hidden'); fb.onclick=null; G._cont=null; sndRight(); fxCorrect();
+  clearTimeout(G._adv); G._adv=setTimeout(()=>{ fb.classList.add('hidden'); dealRound(); }, 2000);
+}
+
+function showResult(results, net){
+  G.locked=true;
+  const cls = net>0?'ok' : net<0?'no' : 'bj';
+  const label = net>0?'WIN' : net<0?'LOSE' : 'PUSH';
+  const money = net>0?'+$'+net.toFixed(0) : net<0?'-$'+Math.abs(net).toFixed(0) : 'Bet returned';
+  const multi = results.length>1 ? '  ('+results.map(r=>r.toUpperCase()).join(' / ')+')' : '';
+  const fb=document.getElementById('fb');
+  fb.innerHTML=`<div class="fb-card"><div class="verdict ${cls}" style="font-size:clamp(38px,9vw,76px)">${label}</div>
+    <div class="rule ${net>=0?'okrule':''}">${money} &bull; Bankroll $${G.bankroll.toFixed(0)}${multi}</div>
+    <div class="next-hint">tap anywhere or <span>continue &rsaquo;</span></div></div>`;
+  fb.classList.remove('hidden');
+  if(net>0) fxCorrect();
+  const go=()=>{ clearTimeout(G._adv); G._cont=null; fb.onclick=null; fb.classList.add('hidden'); dealRound(); };
+  G._cont=go; fb.onclick=go; clearTimeout(G._adv); G._adv=setTimeout(go, 1800);
 }
 
 async function revealHole(){
-  const sc=G.current; const el=G.holeEl; G.holeEl=null;
-  if(el && sc && sc.hole){
+  if(!G.R || G.R.holeRevealed) return;
+  const el=G.R.holeEl, hole=G.R.hole; G.R.holeRevealed=true;
+  if(el && hole){
     el.classList.add('flip'); sndFlip();
     await wait(240);
-    el.className='card '+sc.hole.color;
-    el.innerHTML=`<div class="corner tl"><span class="r">${sc.hole.rank}</span><span class="s">${sc.hole.suit}</span></div>
-      <div class="pip">${sc.hole.suit}</div>
-      <div class="corner br"><span class="r">${sc.hole.rank}</span><span class="s">${sc.hole.suit}</span></div>`;
-    countCard(sc.hole); refreshCount();
+    el.className='card '+hole.color;
+    el.innerHTML=cardFaceHTML(hole);
+    countCard(hole); refreshCount(); updateDealerLabel();
     await wait(140);
   }
-}
-
-function showAutoResolve(natural){
-  G.locked=true;
-  revealHole(); // show dealer card immediately so the player gets more time to count
-  const fb=document.getElementById('fb');
-  const label = natural ? 'BLACKJACK' : '21';
-  fb.innerHTML=`<div class="fb-card"><div class="verdict bj">${label}</div></div>`;
-  fb.classList.remove('hidden'); fb.onclick=null;
-  sndRight(); fxCorrect();
-  clearTimeout(G._adv); G._adv=setTimeout(advance,2000);
 }
 
 function flashShuffle(){
@@ -981,36 +1164,47 @@ function totalLabel(cards){
   if(ace) return 'Hard '+h.total;
   return ''+h.total;
 }
-function handDesc(sc, action){
+function handDesc(cards, action){
   if(action==='split'){
-    const pv=pairVal(sc.player);
+    const pv=pairVal(cards);
     if(pv==='A') return "PAIR OF ACES";
     if(pv===10) return "PAIR OF TENS";
-    return "PAIR OF "+sc.player[0].rank+"s";
+    return "PAIR OF "+cards[0].rank+"s";
   }
-  return totalLabel(sc.player).toUpperCase();
+  return totalLabel(cards).toUpperCase();
 }
-function ruleText(correct, sc){
-  return `PLAYER'S ${handDesc(sc,correct)} ${VERB[correct]} AGAINST DEALER'S ${upText(sc.up.value).toUpperCase()}!`;
+function ruleText(correct, cards){
+  return `PLAYER'S ${handDesc(cards,correct)} ${VERB[correct]} AGAINST DEALER'S ${upText(G.R.up.value).toUpperCase()}!`;
 }
-function devText(dev, sc){
+function devText(dev, cards){
   const tc=trueCount();
   const tcs=(tc>0?'+':'')+tc;
-  return `THE COUNT IS ${tcs}, PLAYER'S ${handDesc(sc,dev.action)} ${VERB[dev.action]} AGAINST DEALER'S ${upText(sc.up.value).toUpperCase()}, INSTEAD OF NORMALLY ${GER[dev.normal]}!`;
+  return `THE COUNT IS ${tcs}, PLAYER'S ${handDesc(cards,dev.action)} ${VERB[dev.action]} AGAINST DEALER'S ${upText(G.R.up.value).toUpperCase()}, INSTEAD OF NORMALLY ${GER[dev.normal]}!`;
 }
 
 /* ---- HUD ---- */
 function updateHUD(){
   document.getElementById('hudHands').textContent=G.hands;
-  document.getElementById('hudScore').textContent=G.score.toLocaleString();
   document.getElementById('hudStreak').textContent=G.streak;
-  const acc=G.hands?Math.round(G.correct/G.hands*100):100;
+  const bk=document.getElementById('hudBank');
+  bk.textContent=(G.bankroll<0?'-$'+Math.abs(G.bankroll).toFixed(0):'$'+G.bankroll.toFixed(0));
+  bk.style.color = G.bankroll<0 ? 'var(--red-soft)' : 'var(--gold-bright)';
+  document.getElementById('hudBet').textContent='$'+((G.R&&G.R.hands&&G.R.hands[0])?G.R.hands[0].bet:currentWager());
+  const acc=G.decisions?Math.round(G.correct/G.decisions*100):100;
   document.getElementById('hudAcc').textContent=acc+'%';
   const sb=document.getElementById('streakBadge');
   sb.style.transform='scale(1.25)'; setTimeout(()=>sb.style.transform='scale(1)',150);
   const fire=document.getElementById('streakFire');
   fire.style.opacity = G.streak>=3?1:0.3;
   sb.style.color = G.streak>=10?'#ff7a3d':(G.streak>=5?'#f2b03d':'#caa64e');
+}
+function toggleRamp(){
+  G.betRamp=!G.betRamp;
+  const t=document.getElementById('rampToggle');
+  t.textContent='RAMP BETS: '+(G.betRamp?'ON':'OFF');
+  t.classList.toggle('on-ramp', G.betRamp);
+  if(G.countShown) refreshCount();
+  updateHUD();
 }
 
 /* ---- theme-aware FX ---- */
@@ -1094,21 +1288,26 @@ function endGame(){
   document.getElementById('fb').classList.add('hidden');
   document.getElementById('countPanel').classList.add('hidden');
   document.getElementById('countToggle').classList.add('hidden');
+  document.getElementById('rampToggle').classList.add('hidden');
   G.countShown=false; document.getElementById('countToggle').textContent='SHOW COUNT';
-  const acc=G.hands?Math.round(G.correct/G.hands*100):0;
+  const acc=G.decisions?Math.round(G.correct/G.decisions*100):0;
   const s=Math.floor((Date.now()-G.startT)/1000);
   const tstr=String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
   const grade = acc>=98?'A+':acc>=93?'A':acc>=88?'B+':acc>=82?'B':acc>=75?'C+':acc>=68?'C':acc>=55?'D':'F';
   document.getElementById('gradeLetter').textContent=grade;
+  const bankStr = G.bankroll<0?'-$'+Math.abs(G.bankroll).toFixed(0):'$'+G.bankroll.toFixed(0);
+  const net = G.bankroll-100;
+  const netStr = (net>0?'+$'+net.toFixed(0):net<0?'-$'+Math.abs(net).toFixed(0):'$0');
 
   document.getElementById('endStats').innerHTML=`
     ${es('Time Played',tstr)}
     ${es('Hands Played',G.hands)}
-    ${es('Basic Strategy','<span>'+G.correct+'</span><small> / '+G.hands+'</small>')}
+    ${es('Decisions',G.decisions)}
+    ${es('Basic Strategy','<span>'+G.correct+'</span><small> / '+G.decisions+'</small>')}
     ${es('Accuracy',acc+'%')}
     ${es('Best Streak',G.best+' \uD83D\uDD25')}
-    ${es('Final Score',G.score.toLocaleString())}
-    ${es('Ending Running',(G.running>0?'+':'')+G.running)}
+    ${es('Bankroll',bankStr)}
+    ${es('Net (from $100)',netStr)}
     ${es('Ending True Count',(trueCount()>0?'+':'')+trueCount())}
     ${es('Deviations Seen',G.devSeen)}
     ${es('Deviations Correct','<span>'+G.devCorrect+'</span><small> / '+G.devSeen+'</small>')}
@@ -1240,7 +1439,7 @@ document.addEventListener('keydown',e=>{
   const game=!document.getElementById('game').classList.contains('hidden');
   if(!game) return;
   const fbOpen=!document.getElementById('fb').classList.contains('hidden');
-  if(fbOpen){ if(e.key===' '||e.key==='Enter'){e.preventDefault();advance();} return; }
+  if(fbOpen){ if(e.key===' '||e.key==='Enter'){e.preventDefault(); if(G._cont) G._cont();} return; }
   const k=e.key.toLowerCase();
   if(k==='h') answer('hit');
   else if(k==='s') answer('stand');
